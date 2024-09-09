@@ -1,117 +1,118 @@
 import cv2
 import pytesseract
 import re
-import sys
 import os
-import csv
+import sys
 from datetime import datetime
 
-# Adding tesseract executable in the PATH
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract'
+# Ensure the path to Tesseract is correctly set
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract'  # Update to your Tesseract-OCR path
 
 
 def preprocess_image(image_path):
+    """
+    Preprocess the image to enhance OCR accuracy.
+    """
     # Load image
     image = cv2.imread(image_path)
 
-    # Convert to grayscale
+    # Convert the image to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # Apply a slight blur to reduce noise
-    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    # Apply Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # Apply adaptive thresholding for better OCR accuracy
-    binary = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+    # Perform OTSU thresholding to binarize the image
+    _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    return binary
+    # Define a kernel for dilation
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
 
+    # Dilate the image to connect text regions
+    dilated = cv2.dilate(thresh, kernel, iterations=1)
 
-def extract_text(image):
-    # Use Tesseract to do OCR on the processed image
-    custom_config = r'--oem 3 --psm 6'
-    text = pytesseract.image_to_string(image, config=custom_config)
-    return text
-
-
-def parse_receipt_text(text):
-    lines = text.split('\n')
-    summary = {
-        'Items': [],
-        'Subtotal': None,
-        'Cash': None,
-        'Change': None
-    }
-
-    item_pattern = re.compile(r'([A-Za-z\s]+)\s+(\d+)\s+(\d+\.\d+)')
-
-    for line in lines:
-        line = line.strip()
-
-        match = item_pattern.match(line)
-        if match:
-            name = match.group(1).strip()
-            qty = match.group(2).strip()
-            total = match.group(3).strip()
-            summary['Items'].append(f"{name},{qty},{total}")  # CSV-friendly format
-
-        elif 'Sub Total' in line or 'Subtotal' in line:
-            subtotal = re.findall(r'\d+\.\d+', line)
-            if subtotal:
-                summary['Subtotal'] = subtotal[0]
-
-        elif 'Cash' in line:
-            cash = re.findall(r'\d+\.\d+', line)
-            if cash:
-                summary['Cash'] = cash[0]
-
-        elif 'Change' in line:
-            change = re.findall(r'\d+\.\d+', line)
-            if change:
-                summary['Change'] = change[0]
-
-    return summary
+    return image, dilated
 
 
-def save_to_csv(summary, image_path):
-    # Create 'logs' folder if it doesn't exist
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
+def extract_text_from_image(image, dilated):
+    """
+    Extract text from the image using contours to identify text regions.
+    """
+    # Find contours on the dilated image
+    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Generate a CSV filename based on the image file's name and current timestamp
+    # List to hold extracted text
+    extracted_text = []
+
+    # Iterate through contours and apply OCR on each detected text region
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+
+        # Crop the text block from the original image
+        cropped = image[y:y + h, x:x + w]
+
+        # Apply OCR on the cropped image
+        text = pytesseract.image_to_string(cropped, config='--psm 6')
+
+        # Clean the extracted text
+        clean_text = clean_extracted_text(text)
+
+        # Append clean text to the list if it's not empty
+        if clean_text:
+            extracted_text.append(clean_text)
+
+    return extracted_text
+
+
+def clean_extracted_text(text):
+    """
+    Clean and filter the extracted text.
+    """
+    # Remove any unwanted characters or empty lines
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    # Join lines into a single string with proper formatting
+    clean_text = '\n'.join(lines)
+
+    return clean_text
+
+
+def save_text_output(extracted_text, image_path):
+    """
+    Save the formatted text to a .txt file.
+    """
+    # Create 'output' folder if it doesn't exist
+    if not os.path.exists('output'):
+        os.makedirs('output')
+
+    # Generate a text filename based on the image file's name and current timestamp
     filename = os.path.splitext(os.path.basename(image_path))[0]
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    csv_filename = f'logs/{filename}_{timestamp}.csv'
+    txt_filename = f'output/{filename}_{timestamp}.txt'
 
-    # Write data to the CSV file
-    with open(csv_filename, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(['Item', 'Quantity', 'Total'])
+    # Write the extracted text to the text file
+    with open(txt_filename, mode='w') as file:
+        for text_block in extracted_text:
+            file.write(text_block + "\n\n")  # Separate text blocks for clarity
 
-        for item in summary['Items']:
-            writer.writerow(item.split(','))
-
-        writer.writerow(['Subtotal', summary['Subtotal']])
-        writer.writerow(['Cash', summary['Cash']])
-        writer.writerow(['Change', summary['Change']])
-
-    print(f"Receipt details saved to {csv_filename}")
+    print(f"Formatted text saved to {txt_filename}")
 
 
 def main(image_path):
+    """
+    Main function to process the receipt image and generate a summary.
+    """
     # Preprocess the image
-    processed_image = preprocess_image(image_path)
+    image, dilated = preprocess_image(image_path)
 
-    # Extract text from the processed image
-    text = extract_text(processed_image)
+    # Extract text from the processed image using contours
+    extracted_text = extract_text_from_image(image, dilated)
 
-    # Optional: Print the raw text for debugging
-    print("Raw OCR Text:\n", text)
+    # Print the extracted text for debugging
+    print("Extracted OCR Text Blocks:\n", extracted_text)
 
-    # Parse the extracted text
-    summary = parse_receipt_text(text)
-
-    # Save the summary to a CSV file in the logs folder
-    save_to_csv(summary, image_path)
+    # Save the summary to a formatted text file in the output folder
+    save_text_output(extracted_text, image_path)
 
 
 if __name__ == "__main__":
