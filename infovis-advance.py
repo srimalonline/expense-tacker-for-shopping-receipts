@@ -75,14 +75,14 @@ def save_dataframe_to_csv(df, output_directory):
 
 def visualize_total_quantity(df):
     """
-    Visualize total quantity sold per item using an interactive bar chart with Plotly.
+    Visualize total quantity bought per item using an interactive bar chart with Plotly.
     """
     # Group by Item and sum the quantities
     item_summary = df.groupby('Item')['Quantity'].sum().sort_values(ascending=False).reset_index()
 
     # Create an interactive bar chart
-    fig = px.bar(item_summary, x='Item', y='Quantity', title='Total Quantity Sold per Item',
-                 labels={'Quantity': 'Total Quantity Sold', 'Item': 'Items'},
+    fig = px.bar(item_summary, x='Item', y='Quantity', title='Total Quantity Bought per Item',
+                 labels={'Quantity': 'Total Quantity Bought', 'Item': 'Items'},
                  color='Quantity', color_continuous_scale='Blues')
 
     # Show the plot
@@ -109,14 +109,14 @@ def visualize_total_amount(df):
 
 def visualize_top_items(df, top_n=5):
     """
-    Visualize top N items by quantity sold using an interactive pie chart with Plotly.
+    Visualize top N items by quantity bought using an interactive pie chart with Plotly.
     """
     # Group by Item and sum the quantities
     item_summary = df.groupby('Item')['Quantity'].sum().sort_values(ascending=False).head(top_n).reset_index()
 
     # Create an interactive pie chart
     fig = px.pie(item_summary, values='Quantity', names='Item',
-                 title=f'Top {top_n} Items by Quantity Sold',
+                 title=f'Top {top_n} Items by Quantity bought',
                  color_discrete_sequence=px.colors.qualitative.Set3)
 
     # Show the plot

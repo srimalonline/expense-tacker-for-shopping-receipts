@@ -71,7 +71,7 @@ def save_dataframe_to_csv(df, output_directory):
 
 def visualize_total_quantity(df):
     """
-    Visualize total quantity sold per item using a bar chart.
+    Visualize total quantity Bought per item using a bar chart.
     """
     # Group by Item and sum the quantities
     item_summary = df.groupby('Item')['Quantity'].sum().sort_values(ascending=False)
@@ -79,9 +79,9 @@ def visualize_total_quantity(df):
     # Plot a bar chart for item quantities
     plt.figure(figsize=(10, 6))
     item_summary.plot(kind='bar', color='skyblue')
-    plt.title('Total Quantity Sold per Item')
+    plt.title('Total Quantity Bought per Item')
     plt.xlabel('Items')
-    plt.ylabel('Total Quantity Sold')
+    plt.ylabel('Total Quantity Bought')
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
@@ -98,8 +98,8 @@ def visualize_total_amount(df):
     # Plot a horizontal bar chart for total amounts
     plt.figure(figsize=(10, 8))
     amount_summary.plot(kind='barh', color='coral')
-    plt.title('Total Sales Amount per Item')
-    plt.xlabel('Total Sales Amount')
+    plt.title('Total Expense Amount per Item')
+    plt.xlabel('Total Expense Amount')
     plt.ylabel('Items')
     plt.tight_layout()
     plt.show()
@@ -107,7 +107,7 @@ def visualize_total_amount(df):
 
 def visualize_top_items(df, top_n=5):
     """
-    Visualize top N items by quantity sold using a pie chart.
+    Visualize top N items by quantity bought using a pie chart.
     """
     # Group by Item and sum the quantities
     item_summary = df.groupby('Item')['Quantity'].sum().sort_values(ascending=False).head(top_n)
@@ -115,7 +115,7 @@ def visualize_top_items(df, top_n=5):
     # Plot a pie chart for top N items
     plt.figure(figsize=(8, 8))
     item_summary.plot(kind='pie', autopct='%1.1f%%', startangle=140, colormap='Set3')
-    plt.title(f'Top {top_n} Items by Quantity Sold')
+    plt.title(f'Top {top_n} Items by Quantity Bought')
     plt.ylabel('')
     plt.tight_layout()
     plt.show()
